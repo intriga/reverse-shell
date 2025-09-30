@@ -29,7 +29,7 @@ AES_KEY = b'jr8sI1WrJqL_5QyUe6j6H8V9g9vPKQO9v8lfdWpzhqk='
 cipher_suite = Fernet(AES_KEY)
 
 # Hardcoded Configuration
-SERVER_IP = "190.114.242.67"
+SERVER_IP = "172.31.7.3"
 SERVER_PORT = 9001
 
 # Global session state

